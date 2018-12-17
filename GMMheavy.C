@@ -95,6 +95,18 @@ int *Pbarrier=new int[nconf];
 for(int q=0;q<nconf;q++){
 	Pbarrier[q]=0;
 }
+
+int* mjperm=new int[ndiff];
+int* Mj=new int[ndiff];
+int** mj=new int*[ndiff];
+	for(int y=0;y<nconf-ndiff;y++){
+	mj[y]=new int;	
+	*mj[y]=0;
+	mjperm[y]=y;
+	Mj[y]=0;
+}
+int mjparts;
+
 int** m0=new int*[nconf-ndiff];
 int* m0perm=new int[nconf-ndiff];
 int* M0=new int[nconf-ndiff];
@@ -104,28 +116,36 @@ for(int y=0;y<nconf-ndiff;y++){
 	m0perm[y]=y;
 	M0[y]=0;
 }
+int m0parts;
 
 int ncg=(int)(pow(2,nbarriers)); 
 int nfine=(int)(pow(2,ndiff))-(int)(pow(2,nbarriers)); 
 int nbroke0=(int)(pow(2,nconf-1))-(int)(pow(2,ndiff));
+
 double * Ksplit=new double[nQ];
 double * pmulti=new double[nQ];
-int y; int last; int lost;
+
+int y; 
+int last; 
+int lost;
+int legit;
+int o;
 ofstream pmul;
 pmul.open("multi_p.txt");
 for (int p=0;p<nQ;p++){
 	cout<<"partition n° " << p << endl;	
+	for (int l=0;l<nconf-1;l++){
+		Pbarrier[nconf-1-l]=((p%int(pow(2,l+1)))>=int(pow(2,l)));
+	}	
 	y=0;
+//	
 	last=ndiff;
 	Ksplit[p]=1;
 	pmulti[p]=0;
 	for(int y=0;y<nconf-ndiff;y++){
-		M0[y]=0;
+		M0[y]=1;
 		*m0[y]=0;
 	}
-	for (int l=0;l<nconf-1;l++){
-		Pbarrier[nconf-1-l]=((p%int(pow(2,l+1)))>=int(pow(2,l)));
-	}	
 	for (int l=ndiff;l<nconf;l++){
 		if(Kbarrier[l]==0&&Pbarrier[l]==1){
 			Ksplit[p]=3;
@@ -135,15 +155,16 @@ for (int p=0;p<nQ;p++){
 		}
 	}	
 	*m0[y]=nconf-last;
+	m0parts=y+1;
 	last=1;	
 	lost=0;
 	sortint(m0, m0perm, nconf-ndiff, 0);
 	cout << "populations of unobserved parts:\n";	
-	for(int y=0;y<nconf-ndiff;y++){
-		cout<<*m0[y]<<" ";
+	for(int w=0;w<m0parts;w++){
+		cout<<*m0[w]<<" ";
 	}
 	cout<<endl;
-	while(last<nconf-ndiff){
+	while(last<m0parts){
 		if(*m0[last]!=0){
 			if (*m0[last]==*m0[last-1]){
 				M0[lost]++;
@@ -158,7 +179,7 @@ for (int p=0;p<nQ;p++){
 		}
 	}
 	cout << "twin parts of unobserved:\n";	
-	for(int y=0;y<nconf-ndiff;y++){
+	for(int y=0;y<lost+1;y++){
 		cout<<M0[y]<<" ";
 	}
 	cout<<endl<<endl;
@@ -167,17 +188,64 @@ for (int p=0;p<nQ;p++){
 		pmulti[p]/=tgamma(*m0[y]+1);
 		pmulti[p]/=tgamma(M0[y]+1);
 	}
-	if (Ksplit[p]!=3){
-		for (int l=1;l<ndiff;l++){
-			if(Kbarrier[l]==0&&Pbarrier[l]==1){
-				Ksplit[p]=2;
+//
+	for(int y=0;y<ndiff;y++){
+		Mj[y]=1;
+		*mj[y]=0;
+	}
+	legit=0; 
+	o=0; 
+	last=0;
+	lost=0;
+	for (int l=1;l<ndiff+1;l++){
+		if(Kbarrier[l]==1){
+			if(o>0){
+				*mj[o]=l-max(last,legit);
+				sortint(mj,mjperm, ndiff, 0);
+				pmulti[p]*=tgamma(l-legit);
+				for(int u=0;u<o+1;u++){		
+					pmulti[p]/=tgamma(*mj[u]+1);
+					cout<<*mj[u]<<"m";
+					if(u==0){continue;}
+					if (*mj[u]==*mj[u-1]){
+						Mj[lost]++;
+					}
+					else{
+						lost++;
+					}
+					*mj[u-1]=0;
+				}
+				*mj[o]=0;
+				cout <<endl;
+				for(int y=0;y<lost+1;y++){
+					pmulti[p]/=tgamma(Mj[y]+1);
+					cout<<Mj[y]<<"M";
+				}
+				cout<<endl<<"--------"<<endl;
+				for(int y=0;y<o+1;y++){
+					Mj[y]=1;
+				}
+				o=0;
+				lost=0;
 			}
+			legit=l;
+			if(Pbarrier[l]==1){
+				last=l;
+			}
+		}
+		if(Kbarrier[l]==0&&Pbarrier[l]==1){
+			if (Ksplit[p]!=3&&Ksplit[p]!=2){			
+				Ksplit[p]=2;
+			}	
+			*mj[o]=l-max(last,legit);
+			last=l;	
+			o++;
 		}
 	}
 	pmul<<p<<'\t'<<pmulti[p]<<'\t'<<Ksplit[p]<<endl;
 }
 pmul.close();
-/*
+
 //compute posteriors for all partitions
 double * PostRatio=new double[nQ];
 for (int p=0;p<nQ;p++){
@@ -222,10 +290,12 @@ for(int p=nQ-1;p>0;p--){
 		cg+=exp(*ReducedSortedLogPostRatio[p]); //cout << cg << " ";
 	}
 	else if(Ksplit[Permutation[p]]==2){
-		fine+=exp(*ReducedSortedLogPostRatio[p]); //cout << fine << endl;
+		fine+=pmulti[p]*exp(*ReducedSortedLogPostRatio[p]); //cout << fine << endl;
+		nfine+=pmulti[p]-1;
 	}
 	else{
-		broke0+=exp(*ReducedSortedLogPostRatio[p]); //cout << fine << endl;
+		broke0+=pmulti[p]*exp(*ReducedSortedLogPostRatio[p]); //cout << fine << endl;
+		nbroke0+=pmulti[p]-1;
 	}
 	if(Permutation[p]==pgen){
 		post<<" ***TRUE ";
@@ -285,7 +355,7 @@ delete[]PostRatio;
 delete[]Permutation;
 for (int p=0;p<nQ;p++){delete[]SortedLogPostRatio[p];}delete[]SortedLogPostRatio;
 for (int p=0;p<nQ;p++){delete[]ReducedSortedLogPostRatio[p];}delete[]ReducedSortedLogPostRatio;
-*/
+
 return 0;
 
 }

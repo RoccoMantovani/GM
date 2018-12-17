@@ -730,7 +730,7 @@ int pivot = high;
 int i = low-1;
 if (abss){
 	for (int j=low;j<=high;j++){
-		if (abs(*c[j])<=abs(*c[pivot])){
+		if (abs(*c[j])>=abs(*c[pivot])){
 			i++;
 			tempd=c[i];
 			c[i]=c[j];
@@ -743,7 +743,7 @@ if (abss){
 }
 else{
 	for (int j=low;j<=high;j++){
-		if ((*c[j])<=(*c[pivot])){
+		if ((*c[j])>=(*c[pivot])){
 			i++;
 			tempd=c[i];
 			c[i]=c[j];
@@ -805,7 +805,7 @@ void sortint(int**&c, int*&o, int nc, const bool abss)
 {
 int *tempd = c[1]; 
 int tempi=o[1];
-int low =1;
+int low =0;
 int high=nc-1; 
 quickintsort(c,o, low, high, tempd, tempi, abss);
 clog<< "[sortcouplings] all ok here\n";
