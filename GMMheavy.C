@@ -23,7 +23,7 @@ int GMM (string filename, char synth, int j, int nvertices,
 	double a, int iter, double*&teams)
 {
 int pgen=2184;							// !
-
+ofstream outs;
 //***create phi matrix***
 int**phi = new int*[nconf]; 
 for (int g=0; g<nconf; g++){
@@ -68,6 +68,7 @@ When bj=1 the corresponding barrier is considered.
 Changing bj will identify a ("freq_ordering_preserving")
 partition of the states.
 */
+outs.open("results.txt");
 int KpIndex=0;
 int *Kbarrier=new int[nconf];
 int nbarriers=0;
@@ -84,12 +85,12 @@ if(ndiff<nconf){
 	Kbarrier[ndiff]=1;
 	nbarriers++;
 }
-cout<<'\t';
+outs<<'\t';
 for(int q=1;q<nconf;q++){
 	KpIndex+=pow(2,(nconf-1-q))*Kbarrier[q];
-	cout<<Kbarrier[q];
+	outs<<Kbarrier[q];
 }
-cout<<endl;
+outs<<endl;
 //***pPart barriers***
 int *Pbarrier=new int[nconf];
 for(int q=0;q<nconf;q++){
@@ -99,7 +100,7 @@ for(int q=0;q<nconf;q++){
 int* mjperm=new int[ndiff];
 int* Mj=new int[ndiff];
 int** mj=new int*[ndiff];
-	for(int y=0;y<nconf-ndiff;y++){
+	for(int y=0;y<ndiff;y++){
 	mj[y]=new int;	
 	*mj[y]=0;
 	mjperm[y]=y;
@@ -159,11 +160,11 @@ for (int p=0;p<nQ;p++){
 	last=1;	
 	lost=0;
 	sortint(m0, m0perm, nconf-ndiff, 0);
-	cout << "populations of unobserved parts:\n";	
+	outs << "populations of unobserved parts:\n";	
 	for(int w=0;w<m0parts;w++){
-		cout<<*m0[w]<<" ";
+		outs<<*m0[w]<<" ";
 	}
-	cout<<endl;
+	outs<<endl;
 	while(last<m0parts){
 		if(*m0[last]!=0){
 			if (*m0[last]==*m0[last-1]){
@@ -178,12 +179,12 @@ for (int p=0;p<nQ;p++){
 			break;
 		}
 	}
-	cout << "twin parts of unobserved:\n";	
+	outs << "twin parts of unobserved:\n";	
 	for(int y=0;y<lost+1;y++){
-		cout<<M0[y]<<" ";
+		outs<<M0[y]<<" ";
 	}
-	cout<<endl<<endl;
-	pmulti[p]=tgamma(nconf-ndiff);
+	outs<<endl<<endl;
+	pmulti[p]=tgamma(nconf-ndiff+1);
 	for(int y=0;y<nconf-ndiff;y++){
 		pmulti[p]/=tgamma(*m0[y]+1);
 		pmulti[p]/=tgamma(M0[y]+1);
@@ -202,10 +203,12 @@ for (int p=0;p<nQ;p++){
 			if(o>0){
 				*mj[o]=l-max(last,legit);
 				sortint(mj,mjperm, ndiff, 0);
-				pmulti[p]*=tgamma(l-legit);
+				pmulti[p]*=tgamma(l-legit+1);
+				outs<<"*"<<tgamma(l-legit+1);
 				for(int u=0;u<o+1;u++){		
 					pmulti[p]/=tgamma(*mj[u]+1);
-					cout<<*mj[u]<<"m";
+					outs<<"/"<<tgamma(*mj[u]+1);
+					outs<<"("<<*mj[u]<<")";
 					if(u==0){continue;}
 					if (*mj[u]==*mj[u-1]){
 						Mj[lost]++;
@@ -216,12 +219,12 @@ for (int p=0;p<nQ;p++){
 					*mj[u-1]=0;
 				}
 				*mj[o]=0;
-				cout <<endl;
+				outs <<endl;
 				for(int y=0;y<lost+1;y++){
-					pmulti[p]/=tgamma(Mj[y]+1);
-					cout<<Mj[y]<<"M";
+					//pmulti[p]/=tgamma(Mj[y]+1);
+					outs<<Mj[y]<<"M";
 				}
-				cout<<endl<<"--------"<<endl;
+				outs<<endl<<"--------"<<endl;
 				for(int y=0;y<o+1;y++){
 					Mj[y]=1;
 				}
@@ -236,6 +239,7 @@ for (int p=0;p<nQ;p++){
 		if(Kbarrier[l]==0&&Pbarrier[l]==1){
 			if (Ksplit[p]!=3&&Ksplit[p]!=2){			
 				Ksplit[p]=2;
+				outs<<"found a fine!!\n";
 			}	
 			*mj[o]=l-max(last,legit);
 			last=l;	
@@ -243,6 +247,7 @@ for (int p=0;p<nQ;p++){
 		}
 	}
 	pmul<<p<<'\t'<<pmulti[p]<<'\t'<<Ksplit[p]<<endl;
+	outs<<p<<'\t'<<pmulti[p]<<'\t'<<Ksplit[p]<<endl;
 }
 pmul.close();
 
@@ -290,12 +295,13 @@ for(int p=nQ-1;p>0;p--){
 		cg+=exp(*ReducedSortedLogPostRatio[p]); //cout << cg << " ";
 	}
 	else if(Ksplit[Permutation[p]]==2){
-		fine+=pmulti[p]*exp(*ReducedSortedLogPostRatio[p]); //cout << fine << endl;
-		nfine+=pmulti[p]-1;
+		fine+=pmulti[Permutation[p]]*exp(*ReducedSortedLogPostRatio[p]);
+		nfine+=(pmulti[Permutation[p]]-1);
+		outs<<pmulti[Permutation[p]]<<'\t';
 	}
 	else{
-		broke0+=pmulti[p]*exp(*ReducedSortedLogPostRatio[p]); //cout << fine << endl;
-		nbroke0+=pmulti[p]-1;
+		broke0+=pmulti[Permutation[p]]*exp(*ReducedSortedLogPostRatio[p]); 
+		nbroke0+=pmulti[Permutation[p]]-1;
 	}
 	if(Permutation[p]==pgen){
 		post<<" ***TRUE ";
@@ -322,7 +328,14 @@ cout	<<'\t'<<(cg/((fine+broke0+cg)))
 cout	<<'\t'<<(cg/((fine+broke0+cg)*ncg))
 	<<'\t'<<(fine/((fine+broke0+cg)*nfine))
 	<<'\t'<<(broke0/((fine+broke0+cg)*nbroke0))<<endl;
-
+outs 	<< "ncg "<<'\t'<<ncg<<"\tnfine "<<'\t'<<nfine<<"\tnbroke0 "<<'\t'<<nbroke0<<endl;
+outs	<<'\t'<<(cg/((fine+broke0+cg)))
+	<<'\t'<<(fine/((fine+broke0+cg)))
+	<<'\t'<<(broke0/((fine+broke0+cg)))<<endl;
+outs	<<'\t'<<(cg/((fine+broke0+cg)*ncg))
+	<<'\t'<<(fine/((fine+broke0+cg)*nfine))
+	<<'\t'<<(broke0/((fine+broke0+cg)*nbroke0))<<endl;
+outs.close();
 if(j==iter-1){
 	cout<<"LAST RUN"<<endl;
 	for (int p=0;p<nQ;p++){
@@ -373,7 +386,7 @@ for (int t=0;t<3;t++){
 }
 int nsample=1000;
 string filename;
-char synth='y';
+char synth='n';
 for (int j=0;j<iterations;j++){
 	cout <<"\nDo you need to generate a synthetic dataset now?\n"
 	     <<"(you need to have a proper \"decidedinteractions.txt\" file ready)\n"
